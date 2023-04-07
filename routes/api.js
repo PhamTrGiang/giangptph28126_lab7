@@ -6,6 +6,7 @@ var jwt = require("jsonwebtoken");
 var router = express.Router();
 var User = require("../models/user");
 var Book = require("../models/book");
+var request = require("request");
 
 const bodyParser = require("body-parser");
 
@@ -88,7 +89,14 @@ router.post("/signin", async function (req, res) {
         homeObj.token = "JWT " + token;
         homeObj.user = user.toObject();
         console.log("homeObj", homeObj);
-        return res.redirect("/api/book");
+
+        request.get('http://localhost:3000/api/book', {
+          headers: { 'Authorization': 'JWT ' + token }
+        }, function (error, response, body) {
+          res.send(body);
+        });
+
+        // return res.redirect("/api/book");
       } else {
         // res.status(401).send({ success: false, msg: 'Authentication failed. Wrong password.' });
         signInObj.notify = "Authentication failed. Wrong password.";
@@ -99,40 +107,37 @@ router.post("/signin", async function (req, res) {
 });
 
 // #BOOK
-router.post(
-  "/book",
-  function (req, res) {
-    passport.authenticate("jwt", { session: false });
-    var token = getToken(req.headers);
-    if (token) {
-      console.log(req.body);
-      var newBook = new Book({
-        isbn: req.body.isbn,
-        title: req.body.title,
-        author: req.body.author,
-        publisher: req.body.publisher,
-      });
+router.post("/book", function (req, res) {
+  passport.authenticate("jwt", { session: false });
+  var token = getToken(req.headers);
+  if (token) {
+    console.log(req.body);
+    var newBook = new Book({
+      isbn: req.body.isbn,
+      title: req.body.title,
+      author: req.body.author,
+      publisher: req.body.publisher,
+    });
 
-      newBook.save(function (err) {
-        if (err) {
-          return res.json({ success: false, msg: "Save book failed." });
-        }
-        res.json({ success: true, msg: "Successful created new book." });
-      });
-    } else {
-      return res.status(403).send({ success: false, msg: "Unauthorized." });
-    }
+    newBook.save(function (err) {
+      if (err) {
+        return res.json({ success: false, msg: "Save book failed." });
+      }
+      res.json({ success: true, msg: "Successful created new book." });
+    });
+  } else {
+    return res.status(403).send({ success: false, msg: "Unauthorized." });
   }
-);
+});
 
 router.get("/book", async function (req, res) {
   passport.authenticate("jwt", { session: false });
-      console.log("headers", req.headers);
+  console.log("headers", req.headers);
   var token = getToken(req.headers);
   if (token) {
     let books = await Book.find();
 
-     res.json(books);
+    res.json(books);
     return res.render("home", homeObj);
   } else {
     return res.status(403).send({ success: false, msg: "Unauthorized." });
@@ -140,7 +145,7 @@ router.get("/book", async function (req, res) {
 });
 
 getToken = (headers) => {
-    console.log(headers && headers.authorization);
+  console.log(headers && headers.authorization);
   if (headers && headers.authorization) {
     var parted = headers.authorization.split(" ");
     if (parted.length === 2) {
